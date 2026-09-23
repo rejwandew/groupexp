@@ -33,9 +33,12 @@
       
       <div class="header-actions">
         <!-- Active Server Badge (hidden when on landing) -->
-        <div id="active-server-badge" style="display: none;">
+        <div id="active-server-badge" style="display: none; align-items: center; gap: 8px;">
           <button id="leave-server-btn" class="btn btn-outline btn-sm">
             <span>🚪 Leave Server</span>
+          </button>
+          <button id="delete-server-btn" class="btn btn-danger btn-sm" onclick="handleDeleteServer()" title="Permanently delete this server">
+            <span>🗑️ Delete Server</span>
           </button>
         </div>
       </div>

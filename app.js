@@ -237,7 +237,7 @@ function enterServer(server) {
 
   document.getElementById('landing-view').style.display = 'none';
   document.getElementById('dashboard-view').style.display = 'block';
-  document.getElementById('active-server-badge').style.display = 'block';
+  document.getElementById('active-server-badge').style.display = 'flex';
   document.getElementById('current-server-display').textContent = '@' + server.username;
 
   loadServerData(server.id);
@@ -254,6 +254,86 @@ document.getElementById('leave-server-btn').addEventListener('click', () => {
   document.getElementById('landing-view').style.display = 'block';
   showToast('Exited server', 'info');
 });
+
+// DELETE SERVER
+async function handleDeleteServer() {
+  if (!state.currentServer) return;
+
+  const serverName = state.currentServer.username;
+
+  const confirmFirst = confirm(`⚠️ Are you sure you want to permanently delete server "@${serverName}"?\n\nAll members, expenses, and transactions in this server will be wiped. This action cannot be undone.`);
+  if (!confirmFirst) return;
+
+  const enteredPass = prompt(`Please enter the password for "@${serverName}" to confirm deletion:`);
+  if (enteredPass === null) return; // User pressed Cancel
+
+  if (state.isSupabaseConfigured && state.supabase) {
+    try {
+      const { data: server, error: fetchErr } = await state.supabase
+        .from('servers')
+        .select('password_hash')
+        .eq('id', state.currentServer.id)
+        .single();
+
+      if (fetchErr || !server) {
+        showToast('Could not verify server.', 'error');
+        return;
+      }
+
+      if (server.password_hash !== enteredPass && server.password_hash !== simpleHash(enteredPass)) {
+        showToast('Incorrect server password. Deletion cancelled.', 'error');
+        return;
+      }
+
+      // Delete transactions and members first for 100% clean deletion, then server
+      await state.supabase.from('transactions').delete().eq('server_id', state.currentServer.id);
+      await state.supabase.from('members').delete().eq('server_id', state.currentServer.id);
+      
+      const { error: delErr } = await state.supabase
+        .from('servers')
+        .delete()
+        .eq('id', state.currentServer.id);
+
+      if (delErr) throw delErr;
+
+      finishServerDeletion(serverName);
+      return;
+    } catch (err) {
+      console.error(err);
+      showToast('Error deleting server from Supabase: ' + err.message, 'error');
+      return;
+    }
+  }
+
+  // Local Storage Mode
+  const localServers = JSON.parse(localStorage.getItem('split_local_servers') || '{}');
+  const server = localServers[serverName];
+  if (server) {
+    if (server.password_hash !== enteredPass && server.password_hash !== simpleHash(enteredPass)) {
+      showToast('Incorrect server password. Deletion cancelled.', 'error');
+      return;
+    }
+    delete localServers[serverName];
+    localStorage.setItem('split_local_servers', JSON.stringify(localServers));
+    localStorage.removeItem(`split_members_${state.currentServer.id}`);
+    localStorage.removeItem(`split_txs_${state.currentServer.id}`);
+  }
+
+  finishServerDeletion(serverName);
+}
+
+function finishServerDeletion(serverName) {
+  state.currentServer = null;
+  state.members = [];
+  state.transactions = [];
+  sessionStorage.removeItem('split_active_server');
+
+  document.getElementById('dashboard-view').style.display = 'none';
+  document.getElementById('active-server-badge').style.display = 'none';
+  document.getElementById('landing-view').style.display = 'block';
+
+  showToast(`Server "@${serverName}" has been permanently deleted.`, 'info');
+}
 
 function checkPersistedSession() {
   const saved = sessionStorage.getItem('split_active_server');
