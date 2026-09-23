@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group Expense & Donation Tracker | Split Ledger</title>
+  <meta name="description" content="Real-time multi-server group expense and donation tracker with automated split ledger math and Supabase synchronization.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Supabase JS Client (UMD) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="brand-badge">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-text">
+          <h1>SplitLedger</h1>
+          <p>Group Expense &amp; Donation Tracker</p>
+        </div>
+      </div>
+      
+      <div class="header-actions">
+        <!-- Active Server Badge (hidden when on landing) -->
+        <div id="active-server-badge" style="display: none;">
+          <button id="leave-server-btn" class="btn btn-outline btn-sm">
+            <span>🚪 Leave Server</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- VIEW 1: LANDING PAGE (CREATE / JOIN SERVER) -->
+    <section id="landing-view" class="landing-view">
+      <div class="hero-box">
+        <span class="hero-badge">Multi-Server Ledger</span>
+        <h2>Manage Group Expenses &amp; Donations</h2>
+        <p>Create a private room for your group or join an existing server with your room credentials.</p>
+      </div>
+
+      <div class="glass-card">
+        <!-- Tab Switcher -->
+        <div class="auth-tabs">
+          <button type="button" id="tab-create-btn" class="auth-tab active" onclick="switchAuthTab('create')">Create Server</button>
+          <button type="button" id="tab-join-btn" class="auth-tab" onclick="switchAuthTab('join')">Join Server</button>
+        </div>
+
+        <!-- Alert Banner for errors (e.g. username taken) -->
+        <div id="auth-alert" class="alert-banner error" style="display: none;">
+          <span id="auth-alert-icon">⚠️</span>
+          <span id="auth-alert-msg"></span>
+        </div>
+
+        <!-- CREATE SERVER FORM -->
+        <form id="create-server-form" onsubmit="handleCreateServer(event)">
+          <div class="form-group">
+            <label for="create-server-username">Server Username (Unique)</label>
+            <input type="text" id="create-server-username" class="form-control" placeholder="e.g. flatmates-2026, tour-group" required autocomplete="off">
+            <small class="form-hint">Must be unique across all servers. This is your room ID.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="create-server-password">Server Password</label>
+            <input type="password" id="create-server-password" class="form-control" placeholder="Set a room password" required autocomplete="new-password">
+            <small class="form-hint">Used by you and your members to access this room.</small>
+          </div>
+
+          <button type="submit" id="create-server-submit-btn" class="btn btn-primary btn-full">
+            <span>🚀 Create Server &amp; Enter</span>
+          </button>
+        </form>
+
+        <!-- JOIN SERVER FORM -->
+        <form id="join-server-form" onsubmit="handleJoinServer(event)" style="display: none;">
+          <div class="form-group">
+            <label for="join-server-username">Enter Server Username</label>
+            <input type="text" id="join-server-username" class="form-control" placeholder="e.g. flatmates-2026" required autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="join-server-password">Enter Server Password</label>
+            <input type="password" id="join-server-password" class="form-control" placeholder="Room password" required autocomplete="current-password">
+          </div>
+
+          <button type="submit" id="join-server-submit-btn" class="btn btn-primary btn-full">
+            <span>🔑 Join Server</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+
+    <!-- VIEW 2: SERVER DASHBOARD (INSIDE ROOM) -->
+    <main id="dashboard-view" class="dashboard-view" style="display: none;">
+      
+      <!-- Server Info Banner -->
+      <div class="glass-card server-banner-card">
+        <div class="server-info-title">
+          <div class="server-badge-icon">🏠</div>
+          <div>
+            <div class="server-meta">
+              <span>Connected Server</span>
+            </div>
+            <div class="server-name-tag" id="current-server-display">server_name</div>
+          </div>
+        </div>
+
+        <div class="server-meta">
+          <span>👥 Members: <strong id="stats-member-count" style="color: #fff;">0</strong></span>
+          <span>💳 Transactions: <strong id="stats-tx-count" style="color: #fff;">0</strong></span>
+          <button class="btn btn-outline btn-sm" onclick="exportDataJSON()" title="Export JSON backup">
+            📥 Export Data
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Dashboard Grid -->
+      <div class="dashboard-grid">
+        
+        <!-- LEFT COLUMN: MEMBER MANAGEMENT & ADD TRANSACTION -->
+        <div class="left-col">
+          
+          <!-- Card 1: Add Members -->
+          <div class="glass-card" style="margin-bottom: 24px;">
+            <div class="section-title">
+              <span>👥 Group Members</span>
+              <span id="member-badge" class="badge-counter">0 Members</span>
+            </div>
+
+            <form id="add-member-form" onsubmit="handleAddMember(event)" class="member-input-row">
+              <input type="text" id="new-member-name" class="form-control" placeholder="Enter member name (e.g. Rahim)" required autocomplete="off">
+              <button type="submit" class="btn btn-primary">
+                <span>+ Add</span>
+              </button>
+            </form>
+
+            <!-- Active Members Tags -->
+            <div class="members-pill-container" id="members-list-container">
+              <span style="color: var(--text-dim); font-size: 0.85rem; align-self: center;">No members added yet. Add at least 2 members.</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Transaction Form -->
+          <div class="glass-card">
+            <div class="section-title">
+              <span>➕ Record Transaction</span>
+            </div>
+
+            <form id="transaction-form" onsubmit="handleRecordTransaction(event)">
+              
+              <!-- 1. Select Person -->
+              <div class="form-group">
+                <label for="tx-person-select">Select Person (Who Paid or Received)</label>
+                <select id="tx-person-select" class="form-control" required>
+                  <option value="" disabled selected>-- Select Member --</option>
+                </select>
+              </div>
+
+              <!-- 2. Select Type: Outgoing Expense vs Incoming Donation -->
+              <div class="form-group">
+                <label>Transaction Type</label>
+                <div class="type-radio-group">
+                  
+                  <label class="type-radio-card selected-outgoing" id="label-type-outgoing">
+                    <input type="radio" name="tx-type" value="outgoing" checked onchange="updateTypeSelection('outgoing')">
+                    <div class="type-icon icon-outgoing">📤</div>
+                    <div class="type-text">
+                      <h4>Outgoing Expense</h4>
+                      <p>Someone paid on behalf of all (split cost)</p>
+                    </div>
+                  </label>
+
+                  <label class="type-radio-card" id="label-type-incoming">
+                    <input type="radio" name="tx-type" value="incoming" onchange="updateTypeSelection('incoming')">
+                    <div class="type-icon icon-incoming">📥</div>
+                    <div class="type-text">
+                      <h4>Incoming Donation</h4>
+                      <p>Someone received cash (split gain)</p>
+                    </div>
+                  </label>
+
+                </div>
+              </div>
+
+              <!-- 3. Purpose -->
+              <div class="form-group">
+                <label for="tx-purpose">Purpose / Description</label>
+                <input type="text" id="tx-purpose" class="form-control" placeholder="e.g. Dinner, Rent, Charity Donation, Project Fund" required autocomplete="off">
+              </div>
+
+              <!-- 4. Amount -->
+              <div class="form-group">
+                <label for="tx-amount">Amount (Tk)</label>
+                <input type="number" id="tx-amount" class="form-control" placeholder="e.g. 100" min="1" step="any" required>
+                <small class="form-hint" id="split-formula-preview">Enter amount to see live split calculation</small>
+              </div>
+
+              <button type="submit" id="submit-tx-btn" class="btn btn-primary btn-full">
+                <span>Record Transaction</span>
+              </button>
+
+            </form>
+          </div>
+
+        </div>
+
+
+        <!-- RIGHT COLUMN: BALANCES & LEDGER -->
+        <div class="right-col">
+          
+          <!-- Member Net Balances -->
+          <div class="glass-card" style="margin-bottom: 24px;">
+            <div class="section-title">
+              <span>📊 Real-Time Member Balances</span>
+              <span class="badge-counter" style="color: var(--emerald);">Auto-Balanced</span>
+            </div>
+            
+            <div class="balance-grid" id="balance-grid-container">
+              <!-- Rendered via JS -->
+              <p style="color: var(--text-dim); font-size: 0.9rem;">Add members and transactions to see live balances.</p>
+            </div>
+
+            <!-- Settlement Matrix (Who owes Whom) -->
+            <div class="settlement-box" id="settlement-box">
+              <div style="font-weight: 700; font-size: 0.92rem; color: #f3f4f6; display: flex; align-items: center; justify-content: space-between;">
+                <span>🤝 Settle-Up Suggestions</span>
+                <span style="font-size: 0.75rem; color: var(--text-dim);">Minimum transfers</span>
+              </div>
+              <div class="settlement-list" id="settlement-list">
+                <span style="color: var(--text-dim); font-size: 0.85rem;">All balances settled!</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Transaction History / Ledger Table -->
+          <div class="glass-card">
+            <div class="section-title">
+              <span>📜 Transaction Activity Ledger</span>
+              <span id="ledger-count-badge" class="badge-counter">0 Records</span>
+            </div>
+
+            <div class="ledger-table-container">
+              <table class="ledger-table">
+                <thead>
+                  <tr>
+                    <th>Date &amp; Time</th>
+                    <th>Person</th>
+                    <th>Type</th>
+                    <th>Purpose</th>
+                    <th>Total Amount</th>
+                    <th>Per-Person Split</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="ledger-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 24px;">
+                      No transactions recorded yet in this server.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+
+  <!-- Toast Notifications Container -->
+  <div id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
