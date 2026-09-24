@@ -84,6 +84,7 @@ body {
   padding: 28px;
   transition: var(--transition);
   max-width: 100%;
+  min-width: 0;
 }
 
 .glass-card:hover {
@@ -295,7 +296,7 @@ body {
 .form-control {
   width: 100%;
   padding: 12px 14px;
-  font-size: 1rem; /* 16px prevents iOS zoom */
+  font-size: 1rem; /* 16px prevents iOS browser auto-zoom */
   font-family: inherit;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
@@ -395,13 +396,13 @@ body {
   grid-template-columns: 1fr 1.35fr;
   gap: 24px;
   margin-bottom: 24px;
+  width: 100%;
 }
 
-@media (max-width: 960px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
+.left-col, .right-col {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
 }
 
 /* Section Titles */
@@ -430,6 +431,7 @@ body {
   display: flex;
   gap: 8px;
   margin-bottom: 14px;
+  width: 100%;
 }
 
 .member-input-row .form-control {
@@ -447,6 +449,7 @@ body {
   border-radius: var(--radius-md);
   border: 1px dashed var(--border-subtle);
   margin-bottom: 18px;
+  width: 100%;
 }
 
 .member-pill {
@@ -499,6 +502,7 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-bottom: 18px;
+  width: 100%;
 }
 
 .type-radio-card {
@@ -512,6 +516,7 @@ body {
   align-items: center;
   gap: 10px;
   transition: var(--transition);
+  min-width: 0;
 }
 
 .type-radio-card input {
@@ -556,10 +561,15 @@ body {
   color: var(--emerald);
 }
 
+.type-text {
+  min-width: 0;
+}
+
 .type-text h4 {
   font-size: 0.88rem;
   font-weight: 700;
   margin-bottom: 2px;
+  word-break: break-word;
 }
 
 .type-text p {
@@ -574,6 +584,7 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
   margin-bottom: 22px;
+  width: 100%;
 }
 
 .balance-card {
@@ -584,6 +595,7 @@ body {
   position: relative;
   overflow: hidden;
   transition: var(--transition);
+  min-width: 0;
 }
 
 .balance-card:hover {
@@ -668,17 +680,9 @@ body {
   margin-bottom: 2px;
 }
 
-.amount-credit {
-  color: var(--emerald);
-}
-
-.amount-debt {
-  color: var(--rose);
-}
-
-.amount-neutral {
-  color: var(--text-muted);
-}
+.amount-credit { color: var(--emerald); }
+.amount-debt { color: var(--rose); }
+.amount-neutral { color: var(--text-muted); }
 
 .balance-subtext {
   font-size: 0.74rem;
@@ -692,6 +696,7 @@ body {
   border-radius: var(--radius-md);
   padding: 14px 16px;
   margin-bottom: 20px;
+  width: 100%;
 }
 
 .settlement-list {
@@ -710,6 +715,7 @@ body {
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .settle-arrow {
@@ -725,11 +731,13 @@ body {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   width: 100%;
+  max-width: 100%;
+  display: block;
 }
 
 .ledger-table {
   width: 100%;
-  min-width: 540px; /* guarantees table readability with smooth horizontal scroll */
+  min-width: 520px; /* guarantees table readability with smooth horizontal scroll */
   border-collapse: collapse;
   text-align: left;
   font-size: 0.86rem;
@@ -843,22 +851,22 @@ body {
    RESPONSIVE MEDIA QUERIES (TABLETS & SMARTPHONES)
    ============================================================ */
 
-/* Tablet & Mobile Screens (<= 768px) */
-@media (max-width: 768px) {
+/* Tablet & Mobile Screens (<= 850px) */
+@media (max-width: 850px) {
   .app-container {
-    padding: 16px 12px;
+    padding: 14px 10px;
   }
 
   .glass-card {
-    padding: 20px 16px;
+    padding: 18px 14px;
     border-radius: 16px;
   }
 
   .top-header {
     flex-direction: column;
     align-items: stretch;
-    padding: 14px 16px;
-    margin-bottom: 20px;
+    padding: 14px;
+    margin-bottom: 18px;
     gap: 12px;
   }
 
@@ -881,8 +889,9 @@ body {
     text-align: center;
   }
 
-  .hero-box h2 {
-    font-size: 1.5rem;
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
   }
 
   .type-radio-group {
@@ -893,7 +902,7 @@ body {
   .server-banner-card {
     flex-direction: column;
     align-items: flex-start;
-    padding: 16px;
+    padding: 14px;
     gap: 12px;
   }
 
@@ -910,11 +919,11 @@ body {
 /* Small Smartphone Screens (<= 480px) */
 @media (max-width: 480px) {
   .app-container {
-    padding: 12px 8px;
+    padding: 10px 8px;
   }
 
   .glass-card {
-    padding: 16px 12px;
+    padding: 14px 10px;
     border-radius: 14px;
   }
 
@@ -928,7 +937,7 @@ body {
 
   .btn {
     font-size: 0.88rem;
-    padding: 10px 16px;
+    padding: 10px 14px;
   }
 
   .server-name-tag {
