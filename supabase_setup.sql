@@ -25,9 +25,10 @@ CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     server_id UUID NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
     person_name TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('incoming', 'outgoing')),
+    type TEXT NOT NULL CHECK (type IN ('incoming', 'outgoing', 'settlement')),
     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     purpose TEXT NOT NULL,
+    recipient_name TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -43,6 +44,9 @@ CREATE POLICY "Allow public read access to servers"
 
 CREATE POLICY "Allow public insert to servers" 
     ON servers FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public delete from servers" 
+    ON servers FOR DELETE USING (true);
 
 CREATE POLICY "Allow public read access to members" 
     ON members FOR SELECT USING (true);

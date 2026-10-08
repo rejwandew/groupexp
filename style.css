@@ -499,7 +499,7 @@ body {
 /* Transaction Type Selector (Outgoing vs Incoming) */
 .type-radio-group {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
   width: 100%;
@@ -540,6 +540,12 @@ body {
   box-shadow: 0 0 16px rgba(16, 185, 129, 0.15);
 }
 
+.type-radio-card.selected-settlement {
+  border-color: var(--primary);
+  background: var(--primary-glow);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.15);
+}
+
 .type-icon {
   width: 38px;
   height: 38px;
@@ -559,6 +565,11 @@ body {
 .icon-incoming {
   background: rgba(16, 185, 129, 0.2);
   color: var(--emerald);
+}
+
+.icon-settlement {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--primary);
 }
 
 .type-text {
@@ -784,6 +795,12 @@ body {
   background: var(--emerald-bg);
   color: var(--emerald);
   border: 1px solid var(--emerald-border);
+}
+
+.type-tag.settlement {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 .amount-cell {

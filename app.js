@@ -484,13 +484,26 @@ async function removeMember(memberId, memberName) {
 function updateTypeSelection(type) {
   const outgoingCard = document.getElementById('label-type-outgoing');
   const incomingCard = document.getElementById('label-type-incoming');
+  const settlementCard = document.getElementById('label-type-settlement');
+  const recipientGroup = document.getElementById('recipient-group');
+  const recipientSelect = document.getElementById('tx-recipient-select');
+
+  outgoingCard.className = 'type-radio-card';
+  incomingCard.className = 'type-radio-card';
+  if (settlementCard) settlementCard.className = 'type-radio-card';
 
   if (type === 'outgoing') {
     outgoingCard.className = 'type-radio-card selected-outgoing';
-    incomingCard.className = 'type-radio-card';
-  } else {
-    outgoingCard.className = 'type-radio-card';
+    recipientGroup.style.display = 'none';
+    if (recipientSelect) recipientSelect.removeAttribute('required');
+  } else if (type === 'incoming') {
     incomingCard.className = 'type-radio-card selected-incoming';
+    recipientGroup.style.display = 'none';
+    if (recipientSelect) recipientSelect.removeAttribute('required');
+  } else if (type === 'settlement') {
+    if (settlementCard) settlementCard.className = 'type-radio-card selected-settlement';
+    recipientGroup.style.display = 'block';
+    if (recipientSelect) recipientSelect.setAttribute('required', 'required');
   }
   updateSplitPreview();
 }
@@ -506,12 +519,19 @@ function updateSplitPreview() {
   const amountVal = parseFloat(document.getElementById('tx-amount').value);
   const previewEl = document.getElementById('split-formula-preview');
   const memberCount = state.members.length;
-  const isIncoming = document.querySelector('input[name="tx-type"]:checked').value === 'incoming';
+  const typeRadio = document.querySelector('input[name="tx-type"]:checked');
+  const type = typeRadio ? typeRadio.value : 'outgoing';
+  const isIncoming = type === 'incoming';
+  const isSettlement = type === 'settlement';
 
   if (!amountVal || amountVal <= 0) {
-    previewEl.innerHTML = memberCount > 0 
-      ? `Splits equally among <strong>${memberCount} members</strong>.` 
-      : `Please add members first.`;
+    if (isSettlement) {
+      previewEl.innerHTML = `Enter amount to see settlement logic.`;
+    } else {
+      previewEl.innerHTML = memberCount > 0 
+        ? `Splits equally among <strong>${memberCount} members</strong>.` 
+        : `Please add members first.`;
+    }
     return;
   }
 
@@ -523,7 +543,9 @@ function updateSplitPreview() {
   const share = (amountVal / memberCount).toFixed(2);
   const netDiff = (amountVal - share).toFixed(2);
 
-  if (isIncoming) {
+  if (isSettlement) {
+    previewEl.innerHTML = `<strong>Direct Settlement:</strong> Payer gets credit <strong>+${amountVal} Tk</strong>; Recipient gets debit <strong>-${amountVal} Tk</strong>.`;
+  } else if (isIncoming) {
     previewEl.innerHTML = `<strong>Incoming Donation:</strong> Share = ${share} Tk/person. Person receiving gets debit <strong>-${netDiff} Tk</strong>; other members receive <strong>+${share} Tk</strong>.`;
   } else {
     previewEl.innerHTML = `<strong>Outgoing Expense:</strong> Share = ${share} Tk/person. Person paying gets credit <strong>+${netDiff} Tk</strong>; other members owe <strong>-${share} Tk</strong>.`;
@@ -542,10 +564,22 @@ async function handleRecordTransaction(e) {
   const type = document.querySelector('input[name="tx-type"]:checked').value;
   const purpose = document.getElementById('tx-purpose').value.trim();
   const amount = parseFloat(document.getElementById('tx-amount').value);
+  const recipientName = type === 'settlement' ? document.getElementById('tx-recipient-select').value : null;
 
   if (!personName) {
     showToast('Please select a member.', 'error');
     return;
+  }
+
+  if (type === 'settlement') {
+    if (!recipientName) {
+      showToast('Please select a recipient for the settlement.', 'error');
+      return;
+    }
+    if (personName === recipientName) {
+      showToast('Payer and Recipient cannot be the same person.', 'error');
+      return;
+    }
   }
 
   if (!amount || amount <= 0) {
@@ -566,6 +600,10 @@ async function handleRecordTransaction(e) {
     purpose: purpose,
     created_at: new Date().toISOString()
   };
+  
+  if (type === 'settlement') {
+    newTx.recipient_name = recipientName;
+  }
 
   if (state.isSupabaseConfigured && state.supabase) {
     try {
@@ -663,6 +701,7 @@ function calculateBalances() {
     const amount = Number(tx.amount);
     const share = amount / N;
     const actor = tx.person_name;
+    const recipient = tx.recipient_name;
 
     if (tx.type === 'outgoing') {
       if (stats[actor]) stats[actor].paidOutgoing += amount;
@@ -684,6 +723,10 @@ function calculateBalances() {
           balances[name] += share;
         }
       });
+    } else if (tx.type === 'settlement') {
+      // Settlement: actor paid out (credit), recipient got money (debit)
+      if (balances[actor] !== undefined) balances[actor] += amount;
+      if (balances[recipient] !== undefined) balances[recipient] -= amount;
     }
   });
 
@@ -770,13 +813,23 @@ function renderMembers() {
 
 function renderDropdown() {
   const select = document.getElementById('tx-person-select');
+  const recipientSelect = document.getElementById('tx-recipient-select');
   const currentVal = select.value;
+  const currentRecipientVal = recipientSelect ? recipientSelect.value : '';
 
-  select.innerHTML = '<option value="" disabled selected>-- Select Member --</option>' +
+  const options = '<option value="" disabled selected>-- Select Member --</option>' +
     state.members.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('');
+    
+  select.innerHTML = options;
+  if (recipientSelect) {
+    recipientSelect.innerHTML = options;
+  }
 
   if (state.members.some(m => m.name === currentVal)) {
     select.value = currentVal;
+  }
+  if (recipientSelect && state.members.some(m => m.name === currentRecipientVal)) {
+    recipientSelect.value = currentRecipientVal;
   }
 }
 
@@ -876,10 +929,14 @@ function renderLedger() {
 
   tbody.innerHTML = state.transactions.map(tx => {
     const isOut = tx.type === 'outgoing';
-    const typeLabel = isOut ? '📤 Outgoing' : '📥 Incoming';
-    const tagClass = isOut ? 'outgoing' : 'incoming';
+    const isIn = tx.type === 'incoming';
+    const isSet = tx.type === 'settlement';
+    
+    let typeLabel = isOut ? '📤 Outgoing' : (isIn ? '📥 Incoming' : '🤝 Settlement');
+    let tagClass = isOut ? 'outgoing' : (isIn ? 'incoming' : 'settlement');
+    
     const amountVal = Number(tx.amount);
-    const shareVal = N > 0 ? (amountVal / N).toFixed(2) : '-';
+    const shareVal = (N > 0 && !isSet) ? (amountVal / N).toFixed(2) : '-';
     const dateFormatted = new Date(tx.created_at).toLocaleString([], {
       month: 'short',
       day: 'numeric',
@@ -887,17 +944,22 @@ function renderLedger() {
       minute: '2-digit'
     });
 
+    let personDisplay = escapeHtml(tx.person_name);
+    if (isSet && tx.recipient_name) {
+       personDisplay = `${escapeHtml(tx.person_name)} ➔ ${escapeHtml(tx.recipient_name)}`;
+    }
+
     return `
       <tr>
         <td style="color: var(--text-dim); font-size: 0.8rem;">${dateFormatted}</td>
-        <td><strong>${escapeHtml(tx.person_name)}</strong></td>
+        <td><strong>${personDisplay}</strong></td>
         <td><span class="type-tag ${tagClass}">${typeLabel}</span></td>
         <td>${escapeHtml(tx.purpose)}</td>
-        <td class="amount-cell" style="color: ${isOut ? 'var(--rose)' : 'var(--emerald)'};">
+        <td class="amount-cell" style="color: ${isOut || isSet ? 'var(--rose)' : 'var(--emerald)'};">
           ${amountVal.toFixed(2)} Tk
         </td>
         <td style="font-size: 0.8rem; color: var(--text-muted);">
-          ${shareVal} Tk / person
+          ${isSet ? 'Direct' : `${shareVal} Tk / person`}
         </td>
         <td>
           <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${tx.id}')" title="Delete record">

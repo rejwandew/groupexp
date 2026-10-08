@@ -193,7 +193,24 @@
                     </div>
                   </label>
 
+                  <label class="type-radio-card" id="label-type-settlement">
+                    <input type="radio" name="tx-type" value="settlement" onchange="updateTypeSelection('settlement')">
+                    <div class="type-icon icon-settlement">🤝</div>
+                    <div class="type-text">
+                      <h4>Direct Settlement</h4>
+                      <p>Pay someone back directly</p>
+                    </div>
+                  </label>
+
                 </div>
+              </div>
+
+              <!-- 2.5 Select Recipient (Only for settlement) -->
+              <div class="form-group" id="recipient-group" style="display: none;">
+                <label for="tx-recipient-select">Select Recipient (Who Receives)</label>
+                <select id="tx-recipient-select" class="form-control">
+                  <option value="" disabled selected>-- Select Member --</option>
+                </select>
               </div>
 
               <!-- 3. Purpose -->
